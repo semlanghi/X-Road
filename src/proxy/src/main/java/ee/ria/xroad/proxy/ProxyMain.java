@@ -121,6 +121,7 @@ public final class ProxyMain {
      * @throws Exception in case of any errors
      */
     public static void main(String args[]) throws Exception {
+        System.out.println("XROAD RUNNING");
         try {
             startup();
             loadConfigurations();

@@ -25,19 +25,13 @@
  */
 package ee.ria.xroad.proxy.clientproxy;
 
+
+
 import ee.ria.xroad.common.CodedException;
 import ee.ria.xroad.common.CodedExceptionWithHttpStatus;
-import ee.ria.xroad.common.SystemProperties;
-import ee.ria.xroad.common.conf.serverconf.IsAuthenticationData;
-import ee.ria.xroad.common.monitoring.MessageInfo;
-import ee.ria.xroad.common.monitoring.MonitorAgent;
 import ee.ria.xroad.common.opmonitoring.OpMonitoringData;
-import ee.ria.xroad.common.util.HandlerBase;
-import ee.ria.xroad.common.util.PerformanceLogger;
 import ee.ria.xroad.proxy.opmonitoring.OpMonitoring;
-import ee.ria.xroad.proxy.util.MessageProcessorBase;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.eclipse.jetty.server.Request;
@@ -47,30 +41,28 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.security.cert.X509Certificate;
-import java.util.Date;
 
 import static ee.ria.xroad.common.ErrorCodes.SERVER_CLIENTPROXY_X;
 import static ee.ria.xroad.common.ErrorCodes.translateWithPrefix;
 import static ee.ria.xroad.common.opmonitoring.OpMonitoringData.SecurityServerType.CLIENT;
-import static ee.ria.xroad.common.util.TimeUtils.getEpochMillisecond;
 
 /**
  * Base class for client proxy handlers.
  */
+
+@SuppressWarnings("checkstyle:LineLength")
 @Slf4j
-@RequiredArgsConstructor
-abstract class AbstractClientProxyHandler extends HandlerBase {
+abstract class AbstractClientProxyAsyncHandler extends AbstractClientProxyHandler {
 
-    private static final String START_TIME_ATTRIBUTE = AbstractClientProxyHandler.class.getName() + ".START_TIME";
-    protected final HttpClient client;
+    protected MessageProcessorAsyncBase processorAsyncBase;
 
-    protected final boolean storeOpMonitoringData;
-    protected final long idleTimeout = SystemProperties.getClientProxyConnectorMaxIdleTime();
+    AbstractClientProxyAsyncHandler(HttpClient client, boolean storeOpMonitoringData) {
+        super(client, storeOpMonitoringData);
+    }
 
-    abstract MessageProcessorBase createRequestProcessor(String target,
-            HttpServletRequest request, HttpServletResponse response,
-            OpMonitoringData opMonitoringData) throws Exception;
+    abstract MessageProcessorAsyncBase createRequestProcessor(String target,
+                                                         HttpServletRequest request, HttpServletResponse response,
+                                                         OpMonitoringData opMonitoringData) throws Exception;
 
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response)
@@ -80,16 +72,28 @@ abstract class AbstractClientProxyHandler extends HandlerBase {
             return;
         }
 
+
+
         boolean handled = false;
 
         long start = logPerformanceBegin(request);
         OpMonitoringData opMonitoringData = storeOpMonitoringData ? new OpMonitoringData(CLIENT, start) : null;
-        MessageProcessorBase processor = null;
+        MessageProcessorAsyncBase processor = null;
 
         try {
-            processor = createRequestProcessor(target, request, response, opMonitoringData);
+            processor = createRequestProcessor(target, request, response, null);
+
+
 
             if (processor != null) {
+
+                /*
+                Saving the asynchronous processor for
+                additional communication and closing
+                 */
+                if (processor.handShaking) {
+                    processorAsyncBase = processor;
+                }
                 baseRequest.getHttpChannel().setIdleTimeout(idleTimeout);
                 handled = true;
                 processor.process();
@@ -148,88 +152,6 @@ abstract class AbstractClientProxyHandler extends HandlerBase {
 
                 logPerformanceEnd(start);
             }
-        }
-    }
-
-    protected static void success(MessageProcessorBase processor, long start, OpMonitoringData opMonitoringData) {
-        final boolean success = processor.verifyMessageExchangeSucceeded();
-        final MessageInfo messageInfo = processor.createRequestMessageInfo();
-
-        updateOpMonitoringSucceeded(opMonitoringData, success);
-        if (success) {
-            MonitorAgent.success(messageInfo, new Date(start), new Date());
-        } else {
-            MonitorAgent.failure(messageInfo, null, null);
-        }
-    }
-
-    protected void failure(MessageProcessorBase processor, HttpServletRequest request, HttpServletResponse response,
-                           CodedException e, OpMonitoringData opMonitoringData) throws IOException {
-        MessageInfo info = processor != null ? processor.createRequestMessageInfo() : null;
-
-        MonitorAgent.failure(info, e.getFaultCode(), e.getFaultString());
-
-        updateOpMonitoringResponseOutTs(opMonitoringData);
-
-        sendErrorResponse(request, response, e);
-    }
-
-    protected void failure(HttpServletResponse response, CodedExceptionWithHttpStatus e,
-            OpMonitoringData opMonitoringData) throws IOException {
-        MonitorAgent.failure(null, e.withPrefix(SERVER_CLIENTPROXY_X).getFaultCode(), e.getFaultString());
-
-        updateOpMonitoringResponseOutTs(opMonitoringData);
-
-        sendPlainTextErrorResponse(response, e.getStatus(), e.getFaultString());
-    }
-
-    static boolean isGetRequest(HttpServletRequest request) {
-        return request.getMethod().equalsIgnoreCase("GET");
-    }
-
-    static boolean isPostRequest(HttpServletRequest request) {
-        return request.getMethod().equalsIgnoreCase("POST");
-    }
-
-    static IsAuthenticationData getIsAuthenticationData(HttpServletRequest request) {
-        X509Certificate[] certs = (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
-
-        return new IsAuthenticationData(certs != null && certs.length != 0 ? certs[0] : null,
-                !"https".equals(request.getScheme())); // if not HTTPS, it's plaintext
-    }
-
-    protected static long logPerformanceBegin(HttpServletRequest request) {
-        long start;
-        Object obj = request.getAttribute(START_TIME_ATTRIBUTE);
-        if (obj instanceof Long) {
-            start = (Long) obj;
-        } else {
-            start = PerformanceLogger.log(log, "Received request from " + request.getRemoteAddr());
-            log.info("Received request from {}", request.getRemoteAddr());
-            request.setAttribute(START_TIME_ATTRIBUTE, start);
-        }
-        return start;
-    }
-
-    protected static void logPerformanceEnd(long start) {
-        PerformanceLogger.log(log, start, "Request handled");
-    }
-
-    protected static void updateOpMonitoringResponseOutTs(OpMonitoringData opMonitoringData) {
-        if (opMonitoringData != null) {
-            opMonitoringData.setResponseOutTs(getEpochMillisecond(), false);
-        }
-    }
-
-    protected static void updateOpMonitoringSoapFault(OpMonitoringData opMonitoringData, CodedException e) {
-        if (opMonitoringData != null) {
-            opMonitoringData.setFaultCodeAndString(e);
-        }
-    }
-
-    private static void updateOpMonitoringSucceeded(OpMonitoringData opMonitoringData, boolean success) {
-        if (opMonitoringData != null) {
-            opMonitoringData.setSucceeded(success);
         }
     }
 }

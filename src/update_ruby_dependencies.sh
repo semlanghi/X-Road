@@ -24,6 +24,7 @@ do
       gem clean
       bundle update
   else
+      echo "Installing!"
       bundle install
   fi
 

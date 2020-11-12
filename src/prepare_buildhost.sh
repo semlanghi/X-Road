@@ -1,5 +1,5 @@
 #!/bin/bash
-test "$(lsb_release -si)" == "Ubuntu" || { echo "This script supports only Ubuntu"; exit 1; }
+# test "$(lsb_release -si)" == "Ubuntu" || { echo "This script supports only Ubuntu"; exit 1; }
 set -e
 
 sudo apt-get update
@@ -35,4 +35,3 @@ if [[ $REL -ge 16 && ! -e /.dockerenv ]]; then
         newgrp docker
     fi
 fi
-

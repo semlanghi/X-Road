@@ -132,6 +132,7 @@ public class DiagnosticService {
      * @return
      * @throws DiagnosticRequestException if sending a diagnostics requests fails or an error is returned
      */
+    @SuppressWarnings("checkstyle:Indentation")
     private JsonObject sendGetRequest(String address) throws DiagnosticRequestException {
         HttpGet request = new HttpGet(address);
         RequestConfig config = RequestConfig.custom()
