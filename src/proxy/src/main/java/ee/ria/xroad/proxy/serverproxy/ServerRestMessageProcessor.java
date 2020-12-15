@@ -514,6 +514,8 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
                 address += "?" + query;
             }
 
+            log.info("In server message processor");
+
             HttpRequestBase req;
             switch (requestProxyMessage.getRest().getVerb()) {
                 case GET:

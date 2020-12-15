@@ -59,6 +59,7 @@ import akka.pattern.Patterns;
 import akka.util.Timeout;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import ee.ria.xroad.xgate.AsyncMainConsumer;
 import lombok.extern.slf4j.Slf4j;
 import scala.concurrent.Await;
 import scala.concurrent.duration.Duration;
@@ -122,6 +123,9 @@ public final class ProxyMain {
      */
     public static void main(String args[]) throws Exception {
         try {
+            log.info("Starting Proxy!!");
+            log.info("About to listen kafka consumer");
+            AsyncMainConsumer.listen();
             startup();
             loadConfigurations();
             startServices();

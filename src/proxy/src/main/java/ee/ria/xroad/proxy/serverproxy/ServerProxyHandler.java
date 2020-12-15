@@ -79,6 +79,7 @@ class ServerProxyHandler extends HandlerBase {
         OpMonitoringData opMonitoringData = new OpMonitoringData(PRODUCER, getEpochMillisecond());
 
         long start = PerformanceLogger.log(log, "Received request from " + request.getRemoteAddr());
+        log.info("-> REQUEST IS in the Server, HERE the content " + baseRequest.toString());
 
         if (!SystemProperties.isServerProxySupportClientsPooledConnections()) {
             // if the header is added, the connections are closed and cannot be reused on the client side

@@ -17,28 +17,28 @@
         - (variant is defined and variant == "ee")
         - ansible_os_family == "RedHat"
 
-- hosts: cs_servers
-  become: yes
-  become_user: root
-  roles:
-    - xroad-cs
-  tags:
-    - cs
-  vars_files:
-    - vars_files/remote_repo.yml
-    - vars_files/cs_database.yml
-    - vars_files/base.yml
+# - hosts: cs_servers
+#   become: yes
+#   become_user: root
+#   roles:
+#     - xroad-cs
+#   tags:
+#     - cs
+#   vars_files:
+#     - vars_files/remote_repo.yml
+#     - vars_files/cs_database.yml
+#     - vars_files/base.yml
 
-- hosts: cp_servers
-  become: yes
-  become_user: root
-  roles:
-    - xroad-cp
-  tags:
-    - cp
-  vars_files:
-    - vars_files/remote_repo.yml
-    - vars_files/base.yml
+# - hosts: cp_servers
+#   become: yes
+#   become_user: root
+#   roles:
+#     - xroad-cp
+#   tags:
+#     - cp
+#   vars_files:
+#     - vars_files/remote_repo.yml
+#     - vars_files/base.yml
 
 - hosts: ss_servers
   become: yes
@@ -52,9 +52,9 @@
     - vars_files/ss_database.yml
     - vars_files/base.yml
 
-- hosts: ca_servers
-  become: yes
-  become_user: root
-  roles:
-    - role: xroad-ca
-      tags: [ 'ca' ]
+# - hosts: ca_servers
+#   become: yes
+#   become_user: root
+#   roles:
+#     - role: xroad-ca
+#       tags: [ 'ca' ]

@@ -1,0 +1,31 @@
+#central servers (ubuntu)
+[cs_servers]
+localhost ansible_ssh_user=ubuntu
+
+#security servers (ubuntu or rhel)
+[ss_servers]
+localhost ansible_ssh_user=ubuntu
+
+#configuration proxies (ubuntu)
+[cp_servers]
+localhost ansible_ssh_user=ubuntu
+
+#certification authority, time stamping authority and ocsp service server (ubuntu)
+[ca_servers]
+localhost ansible_ssh_user=ubuntu
+
+#a custom super group for overriding variable defaults
+[example:children]
+cs_servers
+ss_servers
+cp_servers
+ca_servers
+
+### vars ###
+
+[ss_servers:vars]
+variant=vanilla
+
+[all:vars]
+# extra locales to enable on Ubuntu servers
+#extra_locales=['fi_FI.UTF-8', 'is_IS.UTF-8']

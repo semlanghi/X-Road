@@ -16,6 +16,11 @@ dependencies {
     testImplementation project(':common-test')
     testImplementation project(path: ':common-util', configuration: 'testArtifacts')
 
+    implementation "org.apache.kafka:kafka-streams:2.6.0"
+    implementation "org.apache.kafka:kafka-clients:2.5.0"
+//    implementation "org.apache.kafka:kafka-streams-scala_2.13:2.6.0"
+//    implementation "org.apache.kafka:kafka_2.12:latest.release"
+
     testImplementation 'org.hsqldb:hsqldb:2.5.1'
     testImplementation "com.typesafe.akka:akka-testkit_$akkaVersion"
     testImplementation 'io.rest-assured:rest-assured:4.3.1'

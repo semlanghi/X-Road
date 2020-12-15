@@ -3,6 +3,6 @@ source compile_env.sh
 
 DIR=$PWD
 
-pushd $1 
-$DIR/gradlew $2
+pushd $1
+$DIR/gradlew $2 -x checkstyleMain -x licenseTestJava
 popd

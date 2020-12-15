@@ -1,3 +1,5 @@
+package ee.ria.xroad.proxy.clientproxy;
+
 /**
  * The MIT License
  * Copyright (c) 2019- Nordic Institute for Interoperability Solutions (NIIS)
@@ -23,7 +25,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package ee.ria.xroad.proxy.clientproxy;
 
 import ee.ria.xroad.common.CodedException;
 import ee.ria.xroad.common.SystemProperties;
@@ -37,8 +38,11 @@ import ee.ria.xroad.proxy.conf.KeyConf;
 import ee.ria.xroad.proxy.util.MessageProcessorBase;
 
 import com.google.gson.stream.JsonWriter;
+import ee.ria.xroad.xgate.XGateProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.eclipse.jetty.http.HttpStatus;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -50,10 +54,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.*;
 
 import static ee.ria.xroad.common.ErrorCodes.X_SSL_AUTH_FAILED;
 
@@ -64,30 +65,43 @@ import static ee.ria.xroad.common.ErrorCodes.X_SSL_AUTH_FAILED;
  * the request itself.
  */
 @Slf4j
-class ClientRestMessageHandler extends AbstractClientProxyHandler {
+class XGateClientRestMessageHandler extends AbstractClientProxyHandler {
 
     private static final String TEXT_XML = "text/xml";
     private static final String APPLICATION_XML = "application/xml";
     private static final String TEXT_ANY = "text/*";
     private static final String APPLICATION_JSON = "application/json";
     private static final List<String> XML_TYPES = Arrays.asList(TEXT_XML, APPLICATION_XML, TEXT_ANY);
+    private XGateProducer xGateProducer;
 
-    ClientRestMessageHandler(HttpClient client) {
+    XGateClientRestMessageHandler(HttpClient client) {
         super(client, true);
+        this.xGateProducer = new XGateProducer(getDefaultProps());
+        this.xGateProducer.getTopics().add("echo_topic");
+    }
+
+    private Properties getDefaultProps(){
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "10.227.70.159:9092");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "sink1"+UUID.randomUUID());
+        return props;
     }
 
     @Override
     MessageProcessorBase createRequestProcessor(String target,
-            HttpServletRequest request, HttpServletResponse response,
-            OpMonitoringData opMonitoringData) throws Exception {
-        log.info("message in Client Rest handler.");
+                                                HttpServletRequest request, HttpServletResponse response,
+                                                OpMonitoringData opMonitoringData) throws Exception {
         if (target != null && target.startsWith("/r" + RestMessage.PROTOCOL_VERSION + "/")) {
             verifyCanProcess();
-            return new ClientRestMessageProcessor(request, response, client,
-                    getIsAuthenticationData(request), opMonitoringData);
+
+            return new XGateClientRestMessageProcessor(request, response, client,
+                    getIsAuthenticationData(request), opMonitoringData, xGateProducer);
         }
         return null;
     }
+
 
     private void verifyCanProcess() {
         GlobalConf.verifyValidity();

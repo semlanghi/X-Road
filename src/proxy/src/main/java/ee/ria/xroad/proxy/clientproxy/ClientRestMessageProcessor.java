@@ -110,7 +110,7 @@ class ClientRestMessageProcessor extends AbstractClientMessageProcessor {
     public void process() throws Exception {
         opMonitoringData.setXRequestId(xRequestId);
         updateOpMonitoringClientSecurityServerAddress();
-
+        log.info("message in ClientMessageProcessor.");
         try {
             restRequest = new RestRequest(
                     servletRequest.getMethod(),

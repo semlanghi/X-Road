@@ -19,23 +19,23 @@
   tags: 
     - compile
 
-- hosts: cs_servers
-  vars_files:
-    - vars_files/common_modules.yml
-    - vars_files/cs_modules.yml
-  roles:
-    - { role: packages-to-server, modules: "{{common_modules | combine(cs_modules) }}"}
-  tags:
-    - packages
+# - hosts: cs_servers
+#   vars_files:
+#     - vars_files/common_modules.yml
+#     - vars_files/cs_modules.yml
+#   roles:
+#     - { role: packages-to-server, modules: "{{common_modules | combine(cs_modules) }}"}
+#   tags:
+#     - packages
 
-- hosts: cp_servers
-  vars_files:
-    - vars_files/common_modules.yml
-    - vars_files/cp_modules.yml
-  roles:
-    - { role: packages-to-server, modules: "{{common_modules | combine(cp_modules) }}"}
-  tags:
-    - packages
+# - hosts: cp_servers
+#   vars_files:
+#     - vars_files/common_modules.yml
+#     - vars_files/cp_modules.yml
+#   roles:
+#     - { role: packages-to-server, modules: "{{common_modules | combine(cp_modules) }}"}
+#   tags:
+#     - packages
 
 - hosts: ss_servers
   vars_files:
@@ -52,3 +52,12 @@
     - restart-lxd
   tags:
     - restart
+
+# - hosts: ca_servers
+#   become: yes
+#   become_user: root
+#   roles:
+#     - xroad-ca
+#   tags:
+#     - ca
+#     - install

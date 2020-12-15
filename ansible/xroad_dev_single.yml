@@ -24,48 +24,16 @@
     - compile
 
 - hosts: compile_servers
-  # roles:
-    # - build-packages
-  # tags: 
-    # - build-packages
+  roles:
+    - build-packages
+  tags: 
+    - build-packages
   
-- hosts: ss_servers, cs_servers, cp_servers
+- hosts: ss_servers
   roles:
     - packages-to-local-repo
   tags:
     - packages
-
-- hosts: cs_servers
-  become: yes
-  become_user: root
-  roles:
-    - xroad-cs
-  tags:
-    - cs
-    - install
-  vars_files:
-    - vars_files/local_repo.yml
-    - vars_files/cs_database.yml
-
-- hosts: cp_servers
-  become: yes
-  become_user: root
-  roles:
-    - xroad-cp
-  tags:
-    - cp
-    - install
-  vars_files:
-    - vars_files/local_repo.yml
-
-- hosts: ca_servers
-  become: yes
-  become_user: root
-  roles:
-    - xroad-ca
-  tags:
-    - ca
-    - install
 
 - hosts: ss_servers
   become: yes
@@ -78,3 +46,12 @@
   vars_files:
     - vars_files/local_repo.yml
     - vars_files/ss_database.yml
+
+# - hosts: ca_servers
+#   become: yes
+#   become_user: root
+#   roles:
+#     - xroad-ca
+#   tags:
+#     - ca
+#     - install
