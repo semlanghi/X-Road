@@ -620,6 +620,8 @@ class ServerMessageProcessor extends MessageProcessorBase {
                 HttpClient opMonitorClient, OpMonitoringData monitoringData) throws Exception {
             sender = createHttpSender();
 
+            log.info("COOMMMINNNNGGG TO SOAP WORLD");
+
             log.trace("processRequest({})", requestServiceId);
 
             String address = ServerConf.getServiceAddress(requestServiceId);

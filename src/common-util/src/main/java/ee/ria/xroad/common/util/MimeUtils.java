@@ -70,6 +70,11 @@ public final class MimeUtils {
     public static final String HEADER_SECURITY_SERVER = "x-road-security-server";
     public static final String HEADER_ERROR = "x-road-error";
 
+    // New Async headers
+    public static final String HEADER_ASYNC_HANDSHAKE = "x-road-async-handshake";
+    public static final String HEADER_ASYNC_TOPICS = "x-road-async-topics";
+    public static final String HEADER_ASYNC_BROKER_URL = "x-road-async-broker-url";
+
     public static final String HASH_CHAIN_CONTENT_TYPE = "application/hash-chain";
     public static final String HASH_CHAIN_RESULT_CONTENT_TYPE = "application/hash-chain-result";
 

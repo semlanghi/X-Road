@@ -54,14 +54,12 @@ import ee.ria.xroad.proxy.protocol.ProxyMessageDecoder;
 import ee.ria.xroad.proxy.protocol.ProxyMessageEncoder;
 import ee.ria.xroad.proxy.util.MessageProcessorBase;
 
+import ee.ria.xroad.xgate.AsyncMainConsumer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.input.TeeInputStream;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.Header;
-import org.apache.http.HttpEntityEnclosingRequest;
-import org.apache.http.HttpResponse;
-import org.apache.http.StatusLine;
+import org.apache.http.*;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpDelete;
@@ -74,6 +72,8 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpTrace;
 import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
@@ -102,9 +102,7 @@ import static ee.ria.xroad.common.ErrorCodes.X_SSL_AUTH_FAILED;
 import static ee.ria.xroad.common.ErrorCodes.X_UNKNOWN_MEMBER;
 import static ee.ria.xroad.common.ErrorCodes.X_UNKNOWN_SERVICE;
 import static ee.ria.xroad.common.ErrorCodes.translateWithPrefix;
-import static ee.ria.xroad.common.util.MimeUtils.HEADER_HASH_ALGO_ID;
-import static ee.ria.xroad.common.util.MimeUtils.HEADER_ORIGINAL_CONTENT_TYPE;
-import static ee.ria.xroad.common.util.MimeUtils.HEADER_REQUEST_ID;
+import static ee.ria.xroad.common.util.MimeUtils.*;
 import static ee.ria.xroad.common.util.TimeUtils.getEpochMillisecond;
 
 @Slf4j
@@ -130,6 +128,7 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
     private CachingStream restResponseBody;
 
     private String xRequestId;
+    private String xGateStreamHeaderIncluded;
 
     ServerRestMessageProcessor(HttpServletRequest servletRequest,
                                HttpServletResponse servletResponse,
@@ -148,6 +147,9 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
         log.info("process({})", servletRequest.getContentType());
 
         xRequestId = servletRequest.getHeader(HEADER_REQUEST_ID);
+
+        xGateStreamHeaderIncluded = servletRequest.getHeader(HEADER_ASYNC_HANDSHAKE);
+        log.info("1->xGateStreamHeaderIncluded " + xGateStreamHeaderIncluded);
 
         opMonitoringData.setXRequestId(xRequestId);
         updateOpMonitoringClientSecurityServerAddress();
@@ -352,7 +354,7 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
 
         DescriptionType descriptionType = ServerConf.getDescriptionType(requestServiceId);
         if (descriptionType != null && descriptionType != DescriptionType.REST
-                    && descriptionType != DescriptionType.OPENAPI3) {
+                && descriptionType != DescriptionType.OPENAPI3) {
             throw new CodedException(X_INVALID_SERVICE_TYPE,
                     "Service is a SOAP service and cannot be called using REST interface");
         }
@@ -503,6 +505,7 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
                                   HttpClient restClient, HttpClient opMonitorClient,
                                   OpMonitoringData monitoringData) throws Exception {
             String address = ServerConf.getServiceAddress(requestProxyMessage.getRest().getServiceId());
+            log.info("--->> ADDRESS OF SERVICE " + address);
             if (address == null || address.isEmpty()) {
                 throw new CodedException(X_SERVICE_MISSING_URL, "Service address not specified for '%s'",
                         requestProxyMessage.getRest().getServiceId());
@@ -581,16 +584,50 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
                 requestDigest = requestProxyMessage.getRest().getHash();
             }
 
-            restResponse = new RestResponse(requestProxyMessage.getRest().getClientId(),
-                    requestProxyMessage.getRest().getQueryId(),
-                    requestDigest,
-                    requestProxyMessage.getRest().getServiceId(),
-                    statusLine.getStatusCode(),
-                    statusLine.getReasonPhrase(),
-                    Arrays.asList(response.getAllHeaders()),
-                    servletRequest.getHeader(HEADER_REQUEST_ID)
+            for (Header hh : response.getAllHeaders()) {
+                log.info(">>> " + hh.toString());
+                log.info("> HH Name " + hh.getName());
+                log.info("> HH Value " + hh.getValue());
 
-            );
+                for (HeaderElement he : hh.getElements()) {
+                    log.info("> HE NAME " + he.getName());
+                }
+
+                log.info("\n");
+            }
+
+            log.info("--- ALL HEADERS " + Arrays.toString(response.getAllHeaders()));
+
+            String headerAsyncHandshake = servletRequest.getHeader(HEADER_ASYNC_HANDSHAKE);
+            log.info("1- ABOUT TO SET HEADER BACK " + headerAsyncHandshake);
+            if (headerAsyncHandshake != null && headerAsyncHandshake.equalsIgnoreCase("true")) {
+                log.info("2 - SETTING UP HEADER ASYNC");
+                restResponse = new RestResponse(requestProxyMessage.getRest().getClientId(),
+                        requestProxyMessage.getRest().getQueryId(),
+                        requestDigest,
+                        requestProxyMessage.getRest().getServiceId(),
+                        statusLine.getStatusCode(),
+                        statusLine.getReasonPhrase(),
+                        Arrays.asList(response.getAllHeaders()),
+                        servletRequest.getHeader(HEADER_REQUEST_ID),
+                        headerAsyncHandshake,
+                        AsyncMainConsumer.getTopicName(),
+                        AsyncMainConsumer.getBrokerURL()
+                );
+            } else {
+                log.info("3 - SETTING UP NORMAL HEADERS");
+
+                restResponse = new RestResponse(requestProxyMessage.getRest().getClientId(),
+                        requestProxyMessage.getRest().getQueryId(),
+                        requestDigest,
+                        requestProxyMessage.getRest().getServiceId(),
+                        statusLine.getStatusCode(),
+                        statusLine.getReasonPhrase(),
+                        Arrays.asList(response.getAllHeaders()),
+                        servletRequest.getHeader(HEADER_REQUEST_ID)
+                );
+            }
+
             messageEncoder.restResponse(restResponse);
 
             if (response.getEntity() != null) {

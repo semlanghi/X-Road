@@ -126,6 +126,7 @@ public final class ProxyMain {
             log.info("Starting Proxy!!");
             log.info("About to listen kafka consumer");
             AsyncMainConsumer.listen();
+            log.info("STARTING STARTUP");
             startup();
             loadConfigurations();
             startServices();

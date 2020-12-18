@@ -12,7 +12,7 @@ xroad-lxd-cs ansible_connection=lxd
 
 #security servers (ubuntu lxd containers)
 [ss_servers]
-#xroad-lxd-rh-ss0 ansible_connection=lxd
+xroad-lxd-rh-ss0 ansible_connection=lxd
 xroad-lxd-ss1 ansible_connection=lxd
 # xroad-lxd-ss2 ansible_connection=lxd
 

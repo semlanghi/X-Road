@@ -4,17 +4,17 @@
  * Copyright (c) 2018 Estonian Information System Authority (RIA),
  * Nordic Institute for Interoperability Solutions (NIIS), Population Register Centre (VRK)
  * Copyright (c) 2015-2017 Estonian Information System Authority (RIA), Population Register Centre (VRK)
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -78,11 +78,7 @@ import static ee.ria.xroad.common.ErrorCodes.X_IO_ERROR;
 import static ee.ria.xroad.common.ErrorCodes.X_MISSING_REST;
 import static ee.ria.xroad.common.ErrorCodes.X_MISSING_SIGNATURE;
 import static ee.ria.xroad.common.ErrorCodes.X_SERVICE_FAILED_X;
-import static ee.ria.xroad.common.util.MimeUtils.HEADER_MESSAGE_TYPE;
-import static ee.ria.xroad.common.util.MimeUtils.HEADER_ORIGINAL_CONTENT_TYPE;
-import static ee.ria.xroad.common.util.MimeUtils.HEADER_REQUEST_ID;
-import static ee.ria.xroad.common.util.MimeUtils.VALUE_MESSAGE_TYPE_REST;
-import static ee.ria.xroad.common.util.MimeUtils.getBoundary;
+import static ee.ria.xroad.common.util.MimeUtils.*;
 import static ee.ria.xroad.common.util.TimeUtils.getEpochMillisecond;
 
 @Slf4j
@@ -100,7 +96,7 @@ class ClientRestMessageProcessor extends AbstractClientMessageProcessor {
     private byte[] restBodyDigest;
 
     ClientRestMessageProcessor(HttpServletRequest servletRequest, HttpServletResponse servletResponse,
-            HttpClient httpClient, IsAuthenticationData clientCert, OpMonitoringData opMonitoringData)
+                               HttpClient httpClient, IsAuthenticationData clientCert, OpMonitoringData opMonitoringData)
             throws Exception {
         super(servletRequest, servletResponse, httpClient, clientCert, opMonitoringData);
         this.xRequestId = UUID.randomUUID().toString();
@@ -122,6 +118,8 @@ class ClientRestMessageProcessor extends AbstractClientMessageProcessor {
 
             // Check that incoming identifiers do not contain illegal characters
             checkRequestIdentifiers();
+
+            log.info(">>>>> REQUEST HEADERS" + restRequest.getHeaders().toString());
 
             senderId = restRequest.getClientId();
             requestServiceId = restRequest.getServiceId();
@@ -186,6 +184,16 @@ class ClientRestMessageProcessor extends AbstractClientMessageProcessor {
 
         // Add unique id to distinguish request/response pairs
         httpSender.addHeader(HEADER_REQUEST_ID, xRequestId);
+
+        // XGATE: only if i receive the async handshake request, i forward
+        String headerAsyncHandshake = servletRequest.getHeader(HEADER_ASYNC_HANDSHAKE);
+        log.info("BEFORE EVALUATION CHECKING: " + headerAsyncHandshake);
+        if (headerAsyncHandshake != null && headerAsyncHandshake.equalsIgnoreCase("true")) {
+            log.info("-> FORWARDING HANDSHAKE");
+            httpSender.addHeader(HEADER_ASYNC_HANDSHAKE, servletRequest.getHeader(HEADER_ASYNC_HANDSHAKE));
+        }
+
+        log.info("-> After setting up header (if so)");
 
         try {
             final String contentType = MimeUtils.mpMixedContentType("xtop" + RandomStringUtils.randomAlphabetic(30));

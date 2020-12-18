@@ -4,17 +4,17 @@
  * Copyright (c) 2018 Estonian Information System Authority (RIA),
  * Nordic Institute for Interoperability Solutions (NIIS), Population Register Centre (VRK)
  * Copyright (c) 2015-2017 Estonian Information System Authority (RIA), Population Register Centre (VRK)
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -65,10 +65,11 @@ public class RestResponse extends RestMessage {
 
     /**
      * create response from raw messageBytes
+     *
      * @param messageBytes
      */
     private RestResponse(byte[] messageBytes, ClientId clientId, String queryId, byte[] requestHash,
-            ServiceId serviceId, int code, String reason, List<Header> headers, String xRequestId) {
+                         ServiceId serviceId, int code, String reason, List<Header> headers, String xRequestId) {
         this.messageBytes = messageBytes;
         this.clientId = clientId;
         this.queryId = queryId;
@@ -84,7 +85,7 @@ public class RestResponse extends RestMessage {
      * create response from data
      */
     public RestResponse(ClientId clientId, String queryId, byte[] requestHash, ServiceId serviceId, int code,
-            String reason, List<Header> headers, String xRequestId) {
+                        String reason, List<Header> headers, String xRequestId) {
         this.responseCode = code;
         this.reason = reason;
         this.queryId = queryId;
@@ -105,6 +106,37 @@ public class RestResponse extends RestMessage {
         tmp.add(new BasicHeader(MimeUtils.HEADER_SERVICE_ID, encodeXRoadId(serviceId)));
         tmp.add(new BasicHeader(MimeUtils.HEADER_REQUEST_ID, xRequestId));
         tmp.add(new BasicHeader(MimeUtils.HEADER_REQUEST_HASH, CryptoUtils.encodeBase64(requestHash)));
+        this.headers = tmp;
+    }
+
+    public RestResponse(ClientId clientId, String queryId, byte[] requestHash, ServiceId serviceId, int code,
+                        String reason, List<Header> headers, String xRequestId, String xHandshakePayload, String xGateTopic, String xGateBrokerURL) {
+        this.responseCode = code;
+        this.reason = reason;
+        this.queryId = queryId;
+        this.requestHash = requestHash;
+        this.serviceId = serviceId;
+        this.clientId = clientId;
+        this.xRequestId = xRequestId;
+        final ArrayList<Header> tmp = headers.stream()
+                .filter(h -> !SKIPPED_HEADERS.contains(h.getName().toLowerCase())
+                        && !h.getName().equalsIgnoreCase(MimeUtils.HEADER_QUERY_ID)
+                        && !h.getName().equalsIgnoreCase(MimeUtils.HEADER_REQUEST_HASH)
+                        && !h.getName().equalsIgnoreCase(MimeUtils.HEADER_CLIENT_ID)
+                        && !h.getName().equalsIgnoreCase(MimeUtils.HEADER_REQUEST_ID))
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        tmp.add(new BasicHeader(MimeUtils.HEADER_QUERY_ID, queryId));
+        tmp.add(new BasicHeader(MimeUtils.HEADER_CLIENT_ID, encodeXRoadId(clientId)));
+        tmp.add(new BasicHeader(MimeUtils.HEADER_SERVICE_ID, encodeXRoadId(serviceId)));
+        tmp.add(new BasicHeader(MimeUtils.HEADER_REQUEST_ID, xRequestId));
+        tmp.add(new BasicHeader(MimeUtils.HEADER_REQUEST_HASH, CryptoUtils.encodeBase64(requestHash)));
+
+        // New XGATE Headers
+        tmp.add(new BasicHeader(MimeUtils.HEADER_ASYNC_HANDSHAKE, xHandshakePayload));
+        tmp.add(new BasicHeader(MimeUtils.HEADER_ASYNC_TOPICS, xGateTopic));
+        tmp.add(new BasicHeader(MimeUtils.HEADER_ASYNC_BROKER_URL, xGateBrokerURL));
+
         this.headers = tmp;
     }
 

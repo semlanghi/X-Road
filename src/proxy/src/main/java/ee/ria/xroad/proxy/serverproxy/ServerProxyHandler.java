@@ -4,17 +4,17 @@
  * Copyright (c) 2018 Estonian Information System Authority (RIA),
  * Nordic Institute for Interoperability Solutions (NIIS), Population Register Centre (VRK)
  * Copyright (c) 2015-2017 Estonian Information System Authority (RIA), Population Register Centre (VRK)
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -38,6 +38,7 @@ import ee.ria.xroad.proxy.ProxyMain;
 import ee.ria.xroad.proxy.opmonitoring.OpMonitoring;
 import ee.ria.xroad.proxy.util.MessageProcessorBase;
 
+import ee.ria.xroad.xgate.AsyncMainConsumer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.HttpClient;
@@ -49,14 +50,14 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.security.cert.X509Certificate;
+import java.util.Collections;
 import java.util.Date;
 
 import static ee.ria.xroad.common.ErrorCodes.SERVER_SERVERPROXY_X;
 import static ee.ria.xroad.common.ErrorCodes.X_INVALID_HTTP_METHOD;
 import static ee.ria.xroad.common.ErrorCodes.translateWithPrefix;
 import static ee.ria.xroad.common.opmonitoring.OpMonitoringData.SecurityServerType.PRODUCER;
-import static ee.ria.xroad.common.util.MimeUtils.HEADER_MESSAGE_TYPE;
-import static ee.ria.xroad.common.util.MimeUtils.VALUE_MESSAGE_TYPE_REST;
+import static ee.ria.xroad.common.util.MimeUtils.*;
 import static ee.ria.xroad.common.util.TimeUtils.getEpochMillisecond;
 
 @Slf4j
@@ -75,11 +76,19 @@ class ServerProxyHandler extends HandlerBase {
 
     @Override
     public void handle(String target, Request baseRequest, final HttpServletRequest request,
-            final HttpServletResponse response) throws IOException, ServletException {
+                       final HttpServletResponse response) throws IOException, ServletException {
         OpMonitoringData opMonitoringData = new OpMonitoringData(PRODUCER, getEpochMillisecond());
 
         long start = PerformanceLogger.log(log, "Received request from " + request.getRemoteAddr());
+
+        for (String headerKey : Collections.list(request.getHeaderNames())) {
+            log.info("> HEADER KEY: " + headerKey);
+            log.info("> HEADER VAL: " + request.getHeader(headerKey) + "\n");
+        }
+
         log.info("-> REQUEST IS in the Server, HERE the content " + baseRequest.toString());
+        log.info("-> PASSING HEADER VALIDATION");
+
 
         if (!SystemProperties.isServerProxySupportClientsPooledConnections()) {
             // if the header is added, the connections are closed and cannot be reused on the client side
@@ -90,6 +99,15 @@ class ServerProxyHandler extends HandlerBase {
             if (!request.getMethod().equalsIgnoreCase("POST")) {
                 throw new CodedException(X_INVALID_HTTP_METHOD, "Must use POST request method instead of %s",
                         request.getMethod());
+            }
+
+            String headerValue = request.getHeader(HEADER_ASYNC_HANDSHAKE);
+            log.info("-> HEADER HANDSHAKE VALUE " + headerValue);
+
+            if (headerValue != null && headerValue.equalsIgnoreCase("true")) {
+                log.info("SETTING HEADER ASYNC TOPICS");
+//                response.addHeader(HEADER_ASYNC_TOPICS, "default");
+                response.addHeader(HEADER_ASYNC_TOPICS, AsyncMainConsumer.getTopicName());
             }
 
             GlobalConf.verifyValidity();
@@ -125,7 +143,7 @@ class ServerProxyHandler extends HandlerBase {
     }
 
     private MessageProcessorBase createRequestProcessor(HttpServletRequest request, HttpServletResponse response,
-            OpMonitoringData opMonitoringData) throws Exception {
+                                                        OpMonitoringData opMonitoringData) throws Exception {
 
         if (VALUE_MESSAGE_TYPE_REST.equals(request.getHeader(HEADER_MESSAGE_TYPE))) {
             return new ServerRestMessageProcessor(request, response, client, getClientSslCertChain(request),

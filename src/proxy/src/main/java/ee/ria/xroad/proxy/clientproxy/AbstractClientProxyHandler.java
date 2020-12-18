@@ -4,17 +4,17 @@
  * Copyright (c) 2018 Estonian Information System Authority (RIA),
  * Nordic Institute for Interoperability Solutions (NIIS), Population Register Centre (VRK)
  * Copyright (c) 2015-2017 Estonian Information System Authority (RIA), Population Register Centre (VRK)
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -69,12 +69,14 @@ abstract class AbstractClientProxyHandler extends HandlerBase {
     private final long idleTimeout = SystemProperties.getClientProxyConnectorMaxIdleTime();
 
     abstract MessageProcessorBase createRequestProcessor(String target,
-            HttpServletRequest request, HttpServletResponse response,
-            OpMonitoringData opMonitoringData) throws Exception;
+                                                         HttpServletRequest request, HttpServletResponse response,
+                                                         OpMonitoringData opMonitoringData) throws Exception;
 
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response)
             throws IOException, ServletException {
+        log.info(">---- SS 1");
+
         if (baseRequest.isHandled()) {
             // If some handler already processed the request, we do nothing.
             return;
@@ -92,8 +94,14 @@ abstract class AbstractClientProxyHandler extends HandlerBase {
             if (processor != null) {
                 baseRequest.getHttpChannel().setIdleTimeout(idleTimeout);
                 handled = true;
+                log.info(">---- SS 2");
+
                 processor.process();
+                log.info(">---- SS 3");
+
                 success(processor, start, opMonitoringData);
+                log.info(">---- SS 4");
+
 
                 if (log.isTraceEnabled()) {
                     log.info("Request successfully handled ({} ms)", System.currentTimeMillis() - start);
@@ -137,6 +145,8 @@ abstract class AbstractClientProxyHandler extends HandlerBase {
 
             failure(processor, request, response, cex, opMonitoringData);
         } finally {
+            log.info(">---- SS 4");
+
             baseRequest.setHandled(handled);
 
             if (handled) {
@@ -175,7 +185,7 @@ abstract class AbstractClientProxyHandler extends HandlerBase {
     }
 
     protected void failure(HttpServletResponse response, CodedExceptionWithHttpStatus e,
-            OpMonitoringData opMonitoringData) throws IOException {
+                           OpMonitoringData opMonitoringData) throws IOException {
         MonitorAgent.failure(null, e.withPrefix(SERVER_CLIENTPROXY_X).getFaultCode(), e.getFaultString());
 
         updateOpMonitoringResponseOutTs(opMonitoringData);
