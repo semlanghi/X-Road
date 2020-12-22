@@ -1,71 +1,54 @@
-package ee.ria.xroad.xgate;
-
-//import org.apache.kafka.clients.consumer.KafkaConsumer;
+package ee.ria.xroad.xgate;//import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-//import org.apache.kafka.common.protocol.types.Field;
-import org.apache.kafka.streams.KeyValue;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
-public class XGateProducer implements XGate {
+public class XGateProducer extends XGateComponent {
 
     private KafkaProducer<String, String> producer;
-    private BlockingQueue<ProducerRecord<String, String>> productionQueue;
-    private List<String> producerTopics;
+    private ISInCommunication clientCommunication;
 
-    public XGateProducer(Properties config) {
-        this.producerTopics = Collections.synchronizedList(new ArrayList<>());
-        this.productionQueue = new LinkedBlockingQueue<>();
+    public XGateProducer(ISInCommunication clientCommunication) {
+        super();
+        this.producer = new KafkaProducer<>(XGateConfig.getDefaultProdProps());
+        this.clientCommunication = clientCommunication;
     }
 
-    public XGateProducer(KafkaProducer<String, String> producer) {
+    public XGateProducer(ISInCommunication clientCommunication, String brokerAddress, String initialTopic) {
+        super();
+        this.topics.add(initialTopic);
+        this.producer = new KafkaProducer<>(XGateConfig.getBrokerProdProps(brokerAddress));
+        this.clientCommunication = clientCommunication;
+    }
+
+    public XGateProducer(ISInCommunication clientCommunication, KafkaProducer<String, String> producer) {
+        super();
         this.producer = producer;
-        this.producerTopics = Collections.synchronizedList(new ArrayList<>());
-        this.productionQueue = new LinkedBlockingQueue<>();
-    }
-
-    public List<String> getTopics() {
-        return producerTopics;
+        this.clientCommunication = clientCommunication;
     }
 
     //TODO: make a mapping between member names and topic names (rooms)
-    public void produce(KeyValue<String, String> productionEvent, String topic) {
-        try {
-            ProducerRecord<String, String> record = new ProducerRecord<>(topic,
-                    productionEvent.key, productionEvent.value);
-            productionQueue.put(record);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
+    public void produce() {
+        if(clientCommunication instanceof Thread)
+            ((Thread) clientCommunication).start();
 
-    public void startup() {
-        Thread productionThread = new Thread() {
-            @Override
-            public void run() {
-                if (producerTopics.isEmpty()) {
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                } else {
-                    try {
-                        producer.send(productionQueue.take());
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+        new Thread(() -> {
+            while(true) {
+                List<String> results = clientCommunication.receive();
+                for (String topic : topics
+                ) {
+                    for (String result : results
+                    ) {
+                        ProducerRecord<String, String> record = new ProducerRecord<>(topic,
+                                "key", result);
+                        producer.send(record);
                     }
                 }
             }
-        };
-
+        }).start();
 
     }
+
 }

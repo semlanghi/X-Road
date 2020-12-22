@@ -39,9 +39,12 @@ import ee.ria.xroad.proxy.opmonitoring.OpMonitoring;
 import ee.ria.xroad.proxy.util.MessageProcessorBase;
 
 import ee.ria.xroad.xgate.AsyncMainConsumer;
+import ee.ria.xroad.xgate.XGate;
+import ee.ria.xroad.xgate.XGateConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.HttpClient;
+import org.apache.james.mime4j.util.MimeUtil;
 import org.eclipse.jetty.server.Request;
 
 import javax.servlet.ServletException;
@@ -50,8 +53,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.security.cert.X509Certificate;
-import java.util.Collections;
-import java.util.Date;
+import java.util.*;
 
 import static ee.ria.xroad.common.ErrorCodes.SERVER_SERVERPROXY_X;
 import static ee.ria.xroad.common.ErrorCodes.X_INVALID_HTTP_METHOD;
@@ -68,10 +70,21 @@ class ServerProxyHandler extends HandlerBase {
     private final HttpClient client;
     private final HttpClient opMonitorClient;
     private final long idleTimeout = SystemProperties.getServerProxyConnectorMaxIdleTime();
+    private XGate xGate;
+    //TODO: Implement a mapping between service IDs and Topics
+    private Map<String,String> rooms;
+
+
 
     ServerProxyHandler(HttpClient client, HttpClient opMonitorClient) {
         this.client = client;
         this.opMonitorClient = opMonitorClient;
+    }
+    ServerProxyHandler(HttpClient client, HttpClient opMonitorClient, XGate xGate) {
+        this.client = client;
+        this.opMonitorClient = opMonitorClient;
+        this.xGate=xGate;
+        this.rooms=new HashMap<>();
     }
 
     @Override
@@ -107,7 +120,13 @@ class ServerProxyHandler extends HandlerBase {
             if (headerValue != null && headerValue.equalsIgnoreCase("true")) {
                 log.info("SETTING HEADER ASYNC TOPICS");
 //                response.addHeader(HEADER_ASYNC_TOPICS, "default");
-                response.addHeader(HEADER_ASYNC_TOPICS, AsyncMainConsumer.getTopicName());
+                if(rooms.containsKey(request.getHeader(HEADER_SERVICE_ID))){
+                    response.addHeader(HEADER_ASYNC_TOPICS, rooms.get(request.getHeader(HEADER_SERVICE_ID)));
+                }else{
+                    response.addHeader(HEADER_ASYNC_TOPICS, XGateConfig.XROAD_INTERNAL_KAFKA_TOPIC_DEFAULT);
+                    rooms.put(request.getHeader(HEADER_SERVICE_ID), XGateConfig.XROAD_INTERNAL_KAFKA_TOPIC_DEFAULT);
+                }
+
             }
 
             GlobalConf.verifyValidity();
@@ -147,7 +166,7 @@ class ServerProxyHandler extends HandlerBase {
 
         if (VALUE_MESSAGE_TYPE_REST.equals(request.getHeader(HEADER_MESSAGE_TYPE))) {
             return new ServerRestMessageProcessor(request, response, client, getClientSslCertChain(request),
-                    opMonitoringData);
+                    opMonitoringData, xGate, rooms);
         } else {
             return new ServerMessageProcessor(request, response, client, getClientSslCertChain(request),
                     opMonitorClient, opMonitoringData);

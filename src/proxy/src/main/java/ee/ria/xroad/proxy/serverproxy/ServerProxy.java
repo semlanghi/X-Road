@@ -36,6 +36,7 @@ import ee.ria.xroad.common.util.TimeUtils;
 import ee.ria.xroad.proxy.antidos.AntiDosConnector;
 import ee.ria.xroad.proxy.util.SSLContextUtil;
 
+import ee.ria.xroad.xgate.XGate;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.eclipse.jetty.server.CustomRequestLog;
@@ -89,6 +90,10 @@ public class ServerProxy implements StartStop {
         this(SystemProperties.getServerProxyListenAddress());
     }
 
+    public ServerProxy(XGate xGate) throws Exception {
+        this(SystemProperties.getServerProxyListenAddress(), xGate);
+    }
+
     /**
      * Constructs and configures a new client proxy with the specified listen address.
      *
@@ -104,6 +109,17 @@ public class ServerProxy implements StartStop {
         createOpMonitorClient();
         createConnectors();
         createHandlers();
+    }
+
+    public ServerProxy(String listenAddress, XGate xGate) throws Exception {
+        this.listenAddress = listenAddress;
+
+        configureServer();
+
+        createClient();
+        createOpMonitorClient();
+        createConnectors();
+        createHandlers(xGate);
     }
 
     private void configureServer() throws Exception {
@@ -170,6 +186,25 @@ public class ServerProxy implements StartStop {
         logHandler.setRequestLog(reqLog);
 
         ServerProxyHandler proxyHandler = new ServerProxyHandler(client, opMonitorClient);
+
+        HandlerCollection handler = new HandlerCollection();
+        handler.addHandler(logHandler);
+        handler.addHandler(proxyHandler);
+
+        server.setHandler(handler);
+    }
+
+    private void createHandlers(XGate xGate) {
+        log.trace("createHandlers()");
+
+        final Slf4jRequestLogWriter writer = new Slf4jRequestLogWriter();
+        writer.setLoggerName(getClass().getPackage().getName() + ".RequestLog");
+        final CustomRequestLog reqLog = new CustomRequestLog(writer, CustomRequestLog.EXTENDED_NCSA_FORMAT);
+
+        RequestLogHandler logHandler = new RequestLogHandler();
+        logHandler.setRequestLog(reqLog);
+
+        ServerProxyHandler proxyHandler = new ServerProxyHandler(client, opMonitorClient, xGate);
 
         HandlerCollection handler = new HandlerCollection();
         handler.addHandler(logHandler);

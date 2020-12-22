@@ -37,6 +37,7 @@ import ee.ria.xroad.proxy.conf.KeyConf;
 import ee.ria.xroad.proxy.util.MessageProcessorBase;
 
 import com.google.gson.stream.JsonWriter;
+import ee.ria.xroad.xgate.XGate;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.HttpClient;
 import org.eclipse.jetty.http.HttpStatus;
@@ -71,9 +72,15 @@ class ClientRestMessageHandler extends AbstractClientProxyHandler {
     private static final String TEXT_ANY = "text/*";
     private static final String APPLICATION_JSON = "application/json";
     private static final List<String> XML_TYPES = Arrays.asList(TEXT_XML, APPLICATION_XML, TEXT_ANY);
+    private XGate xGate;
 
     ClientRestMessageHandler(HttpClient client) {
         super(client, true);
+    }
+
+    public ClientRestMessageHandler(HttpClient client, XGate xGate) {
+        super(client, true);
+        this.xGate = xGate;
     }
 
     @Override
@@ -84,7 +91,7 @@ class ClientRestMessageHandler extends AbstractClientProxyHandler {
         if (target != null && target.startsWith("/r" + RestMessage.PROTOCOL_VERSION + "/")) {
             verifyCanProcess();
             return new ClientRestMessageProcessor(request, response, client,
-                    getIsAuthenticationData(request), opMonitoringData);
+                    getIsAuthenticationData(request), opMonitoringData, xGate);
         }
         return null;
     }

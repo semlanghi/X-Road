@@ -1,5 +1,5 @@
 package ee.ria.xroad.xgate;
 
-public interface ISCommunication {
+public interface ISOutCommunication {
     public void send(String message);
 }

@@ -1,82 +1,71 @@
-package ee.ria.xroad.xgate;
-
-//import ee.ria.xroad.common.conf.globalconf.Configuration;
+package ee.ria.xroad.xgate;//import ee.ria.xroad.common.conf.globalconf.Configuration;
 //import org.apache.kafka.clients.consumer.ConsumerRecord;
+
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-//import org.apache.kafka.clients.producer.KafkaProducer;
-//import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.WakeupException;
 
 import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.*;
+
+//import org.apache.kafka.clients.producer.KafkaProducer;
+//import org.apache.kafka.clients.producer.ProducerRecord;
 //import java.util.function.Consumer;
 
-public class XGateConsumer implements XGate {
+public class XGateConsumer extends XGateComponent {
 
     private KafkaConsumer<String, String> consumer;
-    private final CopyOnWriteArrayList<String> consumerTopics;
     //TODO:associate client communications with topics, and/or keys and/or values
-    private final ISCommunication clientCommunication;
+    private final ISOutCommunication clientCommunication;
 
-    public XGateConsumer(Properties config, ISCommunication clientCommunication) {
-        this.consumerTopics = new CopyOnWriteArrayList<>();
+    public XGateConsumer(ISOutCommunication clientCommunication) {
+        super();
+        this.consumer = new KafkaConsumer<>(XGateConfig.getDefaultConsProps());
         this.clientCommunication = clientCommunication;
     }
 
-    public XGateConsumer(KafkaConsumer<String, String> consumer, ISCommunication clientCommunication) {
-        this.consumer = consumer;
-        this.consumerTopics = new CopyOnWriteArrayList<>();
+    public XGateConsumer(ISOutCommunication clientCommunication, String brokerAddress, String initialTopic) {
+        super();
+        this.consumer = new KafkaConsumer<>(XGateConfig.getBrokerConsProps(brokerAddress));
+        this.subscribeTo(initialTopic);
         this.clientCommunication = clientCommunication;
+    }
+
+    public XGateConsumer(ISOutCommunication clientCommunication, KafkaConsumer<String, String> consumer) {
+        super();
+        this.consumer = consumer;
+        this.clientCommunication = clientCommunication;
+    }
+
+
+
+    @Override
+    public void subscribeTo(String topic) {
+        super.subscribeTo(topic);
+        consumer.subscribe(topics);
     }
 
     @Override
-    public List<String> getTopics() {
-        return consumerTopics;
-    }
-
-
-    public void consumeFrom(String topic) {
-        consumerTopics.add(topic);
-        consumer.subscribe(consumerTopics);
-    }
-
-    public void setConsumer(KafkaConsumer<String, String> consumer) {
-        this.consumer = consumer;
-    }
-
     public void removeSub(String topic) {
-        consumerTopics.remove(topic);
+        super.removeSub(topic);
+        consumer.subscribe(topics);
     }
 
-    public void startup() {
-        Thread productionThread = new Thread() {
-            @Override
-            public void run() {
-                if (consumerTopics.isEmpty()) {
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                } else {
-                    try {
-                        while (true) {
-                            ConsumerRecords<String, String> records = consumer.poll(Duration.ZERO);
-                            records.forEach(record -> {
-                                clientCommunication.send(record.value());
-                            });
-                        }
-                    } catch (WakeupException e) {
-                        // Using wakeup to close consumer
-                    } finally {
-                        consumer.close();
-                    }
+    public void consume() {
+        Thread productionThread = new Thread(() -> {
+            try {
+                while (true) {
+                    ConsumerRecords<String, String> records = consumer.poll(Duration.ZERO);
+                    records.forEach(record -> {
+                        clientCommunication.send(record.value());
+                    });
                 }
+            } catch (WakeupException e) {
+                // Using wakeup to close consumer
+            } finally {
+                consumer.close();
             }
-        };
-
+        });
+        productionThread.start();
 
     }
 }

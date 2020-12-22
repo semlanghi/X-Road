@@ -55,6 +55,9 @@ import ee.ria.xroad.proxy.protocol.ProxyMessageEncoder;
 import ee.ria.xroad.proxy.util.MessageProcessorBase;
 
 import ee.ria.xroad.xgate.AsyncMainConsumer;
+import ee.ria.xroad.xgate.ISInCommunicationGet;
+import ee.ria.xroad.xgate.XGate;
+import ee.ria.xroad.xgate.XGateConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.input.TeeInputStream;
 import org.apache.commons.lang3.ArrayUtils;
@@ -83,10 +86,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.OutputStream;
+import java.net.URL;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static ee.ria.xroad.common.ErrorCodes.SERVER_SERVERPROXY_X;
 import static ee.ria.xroad.common.ErrorCodes.X_ACCESS_DENIED;
@@ -129,6 +134,8 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
 
     private String xRequestId;
     private String xGateStreamHeaderIncluded;
+    private XGate xGate;
+    private Map<String,String> rooms;
 
     ServerRestMessageProcessor(HttpServletRequest servletRequest,
                                HttpServletResponse servletResponse,
@@ -139,6 +146,21 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
 
         this.clientSslCerts = clientSslCerts;
         this.opMonitoringData = opMonitoringData;
+        loadServiceHandlers();
+    }
+
+    ServerRestMessageProcessor(HttpServletRequest servletRequest,
+                               HttpServletResponse servletResponse,
+                               HttpClient httpClient,
+                               X509Certificate[] clientSslCerts,
+                               OpMonitoringData opMonitoringData,
+                               XGate xGate, Map<String,String> rooms) {
+        super(servletRequest, servletResponse, httpClient);
+
+        this.clientSslCerts = clientSslCerts;
+        this.opMonitoringData = opMonitoringData;
+        this.xGate = xGate;
+        this.rooms = rooms;
         loadServiceHandlers();
     }
 
@@ -238,7 +260,7 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
     private void handleRequest() throws Exception {
         RestServiceHandler handler = getServiceHandler(requestMessage);
         if (handler == null) {
-            handler = new DefaultRestServiceHandlerImpl();
+            handler = new DefaultRestServiceHandlerImpl(xGate,rooms);
         }
         log.trace("handler={}", handler);
         if (handler.shouldVerifyAccess()) {
@@ -470,6 +492,16 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
 
         private RestResponse restResponse;
         private CachingStream restResponseBody;
+        private XGate xGate;
+        private Map<String,String> rooms;
+
+        public DefaultRestServiceHandlerImpl() {
+        }
+
+        public DefaultRestServiceHandlerImpl(XGate xGate, Map<String, String> rooms) {
+            this.xGate = xGate;
+            this.rooms = rooms;
+        }
 
         private String concatPath(String address, String path) {
             if (path == null || path.isEmpty()) return address;
@@ -611,9 +643,17 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
                         Arrays.asList(response.getAllHeaders()),
                         servletRequest.getHeader(HEADER_REQUEST_ID),
                         headerAsyncHandshake,
-                        AsyncMainConsumer.getTopicName(),
-                        AsyncMainConsumer.getBrokerURL()
+                        rooms.getOrDefault(servletRequest.getHeader(HEADER_SERVICE_ID), XGateConfig.XROAD_INTERNAL_KAFKA_TOPIC_DEFAULT),
+                        XGateConfig.XROAD_INTERNAL_KAFKA_ADDRESS_DEFAULT
                 );
+
+                URL url = new URL(address);
+                xGate.setInCommunication(new ISInCommunicationGet(url));
+                log.info("2 - SETTING UP HEADER ASYNC");
+                xGate.produceTo(XGateConfig.XROAD_INTERNAL_KAFKA_ADDRESS_DEFAULT +":"+ XGateConfig.IS_KAFKA_PORT_DEFAULT,
+                        rooms.getOrDefault(servletRequest.getHeader(HEADER_SERVICE_ID), XGateConfig.XROAD_INTERNAL_KAFKA_TOPIC_DEFAULT));
+
+
             } else {
                 log.info("3 - SETTING UP NORMAL HEADERS");
 
@@ -641,6 +681,8 @@ class ServerRestMessageProcessor extends MessageProcessorBase {
             monitoringData.setResponseSize(restResponse.getMessageBytes().length
                     + messageEncoder.getAttachmentsByteCount());
         }
+
+
 
         @Override
         public RestResponse getRestResponse() {

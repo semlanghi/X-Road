@@ -60,6 +60,7 @@ import akka.util.Timeout;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import ee.ria.xroad.xgate.AsyncMainConsumer;
+import ee.ria.xroad.xgate.XGate;
 import lombok.extern.slf4j.Slf4j;
 import scala.concurrent.Await;
 import scala.concurrent.duration.Duration;
@@ -69,6 +70,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.ServerSocket;
 import java.net.URL;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -125,7 +127,7 @@ public final class ProxyMain {
         try {
             log.info("Starting Proxy!!");
             log.info("About to listen kafka consumer");
-            AsyncMainConsumer.listen();
+            //AsyncMainConsumer.listen();
             log.info("STARTING STARTUP");
             startup();
             loadConfigurations();
@@ -197,8 +199,13 @@ public final class ProxyMain {
         }
 
         SERVICES.add(jobManager);
-        SERVICES.add(new ClientProxy());
-        SERVICES.add(new ServerProxy());
+        XGate xGate = new XGate();
+        ClientProxy clientProxy = new ClientProxy(xGate);
+        ServerProxy serverProxy = new ServerProxy(xGate);
+
+
+        SERVICES.add(clientProxy);
+        SERVICES.add(serverProxy);
 
         SERVICES.add(new CertHashBasedOcspResponder());
 

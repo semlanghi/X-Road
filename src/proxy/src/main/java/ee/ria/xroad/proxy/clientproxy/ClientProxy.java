@@ -32,6 +32,7 @@ import ee.ria.xroad.common.util.StartStop;
 import ee.ria.xroad.proxy.serverproxy.IdleConnectionMonitorThread;
 import ee.ria.xroad.proxy.util.SSLContextUtil;
 
+import ee.ria.xroad.xgate.XGate;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.config.RequestConfig;
@@ -108,6 +109,14 @@ public class ClientProxy implements StartStop {
         createClient();
         createConnectors();
         createHandlers();
+    }
+
+    public ClientProxy(XGate xGate) throws Exception {
+        configureServer();
+
+        createClient();
+        createConnectors();
+        createHandlers(xGate);
     }
 
     private void configureServer() throws Exception {
@@ -265,11 +274,54 @@ public class ClientProxy implements StartStop {
         server.setHandler(handlers);
     }
 
+    private void createHandlers(XGate xGate) throws Exception {
+        log.trace("createHandlers()");
+
+        final Slf4jRequestLogWriter writer = new Slf4jRequestLogWriter();
+        writer.setLoggerName(getClass().getPackage().getName() + ".RequestLog");
+        final CustomRequestLog reqLog = new CustomRequestLog(writer, CustomRequestLog.EXTENDED_NCSA_FORMAT);
+
+        RequestLogHandler logHandler = new RequestLogHandler();
+        logHandler.setRequestLog(reqLog);
+
+        HandlerCollection handlers = new HandlerCollection();
+
+        handlers.addHandler(logHandler);
+
+        getClientHandlers(xGate).forEach(handlers::addHandler);
+
+        server.setHandler(handlers);
+    }
+
     private List<Handler> getClientHandlers() {
         List<Handler> handlers = new ArrayList<>();
         String handlerClassNames = System.getProperty(CLIENTPROXY_HANDLERS);
 
         handlers.add(new ClientRestMessageHandler(client));
+
+        if (!StringUtils.isBlank(handlerClassNames)) {
+            for (String handlerClassName : handlerClassNames.split(",")) {
+                try {
+                    log.trace("Loading client handler {}", handlerClassName);
+
+                    handlers.add(loadHandler(handlerClassName, client));
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to load client handler: " + handlerClassName, e);
+                }
+            }
+        }
+
+        log.trace("Loading default client handler");
+        handlers.add(new ClientMessageHandler(client)); // default handler
+
+        return handlers;
+    }
+
+    private List<Handler> getClientHandlers(XGate xGate) {
+        List<Handler> handlers = new ArrayList<>();
+        String handlerClassNames = System.getProperty(CLIENTPROXY_HANDLERS);
+
+        handlers.add(new ClientRestMessageHandler(client,xGate));
 
         if (!StringUtils.isBlank(handlerClassNames)) {
             for (String handlerClassName : handlerClassNames.split(",")) {

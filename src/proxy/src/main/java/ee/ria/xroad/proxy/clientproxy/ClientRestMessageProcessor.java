@@ -36,16 +36,16 @@ import ee.ria.xroad.common.message.RestResponse;
 import ee.ria.xroad.common.monitoring.MessageInfo;
 import ee.ria.xroad.common.monitoring.MonitorAgent;
 import ee.ria.xroad.common.opmonitoring.OpMonitoringData;
-import ee.ria.xroad.common.util.CachingStream;
-import ee.ria.xroad.common.util.CryptoUtils;
-import ee.ria.xroad.common.util.HttpSender;
-import ee.ria.xroad.common.util.MimeUtils;
+import ee.ria.xroad.common.util.*;
 import ee.ria.xroad.proxy.conf.KeyConf;
 import ee.ria.xroad.proxy.messagelog.MessageLog;
 import ee.ria.xroad.proxy.protocol.ProxyMessage;
 import ee.ria.xroad.proxy.protocol.ProxyMessageDecoder;
 import ee.ria.xroad.proxy.protocol.ProxyMessageEncoder;
 
+import ee.ria.xroad.xgate.ISOutCommunicationKafka;
+import ee.ria.xroad.xgate.XGate;
+import ee.ria.xroad.xgate.XGateConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -94,12 +94,23 @@ class ClientRestMessageProcessor extends AbstractClientMessageProcessor {
     private RestRequest restRequest;
     private String xRequestId;
     private byte[] restBodyDigest;
+    private XGate xGate;
+    private boolean asyncReq = false;
 
     ClientRestMessageProcessor(HttpServletRequest servletRequest, HttpServletResponse servletResponse,
                                HttpClient httpClient, IsAuthenticationData clientCert, OpMonitoringData opMonitoringData)
             throws Exception {
         super(servletRequest, servletResponse, httpClient, clientCert, opMonitoringData);
         this.xRequestId = UUID.randomUUID().toString();
+    }
+
+    ClientRestMessageProcessor(HttpServletRequest servletRequest, HttpServletResponse servletResponse,
+                               HttpClient httpClient, IsAuthenticationData clientCert, OpMonitoringData opMonitoringData,
+                               XGate xGate)
+            throws Exception {
+        super(servletRequest, servletResponse, httpClient, clientCert, opMonitoringData);
+        this.xRequestId = UUID.randomUUID().toString();
+        this.xGate = xGate;
     }
 
     @Override
@@ -191,6 +202,9 @@ class ClientRestMessageProcessor extends AbstractClientMessageProcessor {
         if (headerAsyncHandshake != null && headerAsyncHandshake.equalsIgnoreCase("true")) {
             log.info("-> FORWARDING HANDSHAKE");
             httpSender.addHeader(HEADER_ASYNC_HANDSHAKE, servletRequest.getHeader(HEADER_ASYNC_HANDSHAKE));
+            asyncReq = true;
+            xGate.setOutCommunication(new ISOutCommunicationKafka(XGateConfig.IS_KAFKA_TOPIC_DEFAULT,
+                    XGateConfig.IS_KAFKA_ADDRESS_DEFAULT +":"+XGateConfig.IS_KAFKA_PORT_DEFAULT));
         }
 
         log.info("-> After setting up header (if so)");
@@ -283,6 +297,19 @@ class ClientRestMessageProcessor extends AbstractClientMessageProcessor {
 
     private void sendResponse() throws Exception {
         final RestResponse rest = response.getRestResponse();
+
+        if(asyncReq){
+            Header brokerAddress = null;
+            Header topic = null;
+            for(Header h : rest.getHeaders()){
+                if(h.getName().equals(HEADER_ASYNC_BROKER_URL))
+                    brokerAddress = h;
+                if(h.getName().equals(HEADER_ASYNC_TOPICS))
+                    topic = h;
+            }
+            if(brokerAddress !=null && topic != null)
+                xGate.consumeFrom(brokerAddress.getValue() +":"+ XGateConfig.IS_KAFKA_PORT_DEFAULT, topic.getValue());
+        }
         if (servletResponse instanceof Response) {
             // the standard API for setting reason and code is deprecated
             ((Response) servletResponse).setStatusWithReason(
