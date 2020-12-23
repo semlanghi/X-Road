@@ -43,6 +43,7 @@ import ee.ria.xroad.proxy.protocol.ProxyMessage;
 import ee.ria.xroad.proxy.protocol.ProxyMessageDecoder;
 import ee.ria.xroad.proxy.protocol.ProxyMessageEncoder;
 
+import ee.ria.xroad.xgate.ISInOutCommunicationSocket;
 import ee.ria.xroad.xgate.ISOutCommunicationKafka;
 import ee.ria.xroad.xgate.XGate;
 import ee.ria.xroad.xgate.XGateConfig;
@@ -203,8 +204,9 @@ class ClientRestMessageProcessor extends AbstractClientMessageProcessor {
             log.info("-> FORWARDING HANDSHAKE");
             httpSender.addHeader(HEADER_ASYNC_HANDSHAKE, servletRequest.getHeader(HEADER_ASYNC_HANDSHAKE));
             asyncReq = true;
-            xGate.setOutCommunication(new ISOutCommunicationKafka(XGateConfig.IS_KAFKA_TOPIC_DEFAULT,
-                    XGateConfig.IS_KAFKA_ADDRESS_DEFAULT +":"+XGateConfig.IS_KAFKA_PORT_DEFAULT));
+//            xGate.setOutCommunication(new ISOutCommunicationKafka(XGateConfig.IS_KAFKA_TOPIC_DEFAULT,
+//                    XGateConfig.IS_KAFKA_ADDRESS_DEFAULT +":"+XGateConfig.IS_KAFKA_PORT_DEFAULT));
+            xGate.setOutCommunication(new ISInOutCommunicationSocket());
         }
 
         log.info("-> After setting up header (if so)");

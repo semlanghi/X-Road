@@ -51,6 +51,9 @@ public class XGateConsumer extends XGateComponent {
     }
 
     public void consume() {
+        if(clientCommunication instanceof Thread){
+            ((Thread) clientCommunication).start();
+        }
         Thread productionThread = new Thread(() -> {
             try {
                 while (true) {
