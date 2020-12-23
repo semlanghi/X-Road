@@ -98,3 +98,7 @@ by [RIA](https://www.ria.ee) (X-tee) and [VRK](https://www.vrk.fi) (Suomi.fi-pal
 [X-Road Technology Partners](https://x-road.global/xroad-technology-partners) are enterprises providing X-Road consultation services, e.g. deploying independent X-Road instances, developing X-Road extensions and X-Road-compatible services, integrating informations systems with X-Road etc.
 
 No support for X-Road deployment is provided here.
+
+## X-Gate Demo
+
+DISCLAIMER: X-Gate modifications and demo guide are on branch "async-final". 
