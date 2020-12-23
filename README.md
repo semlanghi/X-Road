@@ -98,3 +98,62 @@ by [RIA](https://www.ria.ee) (X-tee) and [VRK](https://www.vrk.fi) (Suomi.fi-pal
 [X-Road Technology Partners](https://x-road.global/xroad-technology-partners) are enterprises providing X-Road consultation services, e.g. deploying independent X-Road instances, developing X-Road extensions and X-Road-compatible services, integrating informations systems with X-Road etc.
 
 No support for X-Road deployment is provided here.
+
+## X-Gate Demo
+
+DISCLAIMER: X-Gate modifications are on branch "async-final". 
+
+- [Download](https://kafka.apache.org/downloads) Kafka (last version is OK)
+- Move to Kafka Unzipped/Untar folder
+- Startup first Zookeeper and then the Kafka Broker 
+
+```
+./bin/zookeeper-server-start.sh ./config/zookeeper.properties
+./bin/kafka-server-start.sh ./config/server.properties
+```
+
+- To run the demo, you need to setup default variables in class [XGateConfig](https://github.com/semlanghi/X-Road/blob/async-final/src/proxy/src/main/java/ee/ria/xroad/xgate/XGateConfig.java). In particular:
+  - IS\_KAFKA\_PORT\_DEFAULT indicates the address of the Kafka Broker
+  - IS\_KAFKA\_ADDRESS\_DEFAULT indicates the port of the Kafka Broker
+- Then, startup the X-Road environment through Ansible
+- The setup should comprehend
+  - Security Server 1
+  - Security Server 2
+  - Central Server 
+  - TSA and CA (may be on the same machine as CS)
+- Setup the global configurations
+- Setup the subsystems
+- Test it sending a synchronous GET request
+  - NOTE: the IP addresses and member/subsystems names of the following requests refer to our development environment
+
+```
+curl -i -X GET "http://10.227.70.220/r1/DEMO/GOV/1234/TESTSERVICE/kore/school/" -H "accept:application/json" -H "X-Road-Client:DEMO/GOV/1234/TEST"
+```
+
+- Then, send an asynchronous handshake request
+
+```
+curl -i -X GET "http://10.227.70.220/r1/DEMO/GOV/1234/TESTSERVICE/kore/school/" -H "accept:application/json" -H "X-Road-Client:DEMO/GOV/1234/TEST" -H "x-road-async-handshake:true"
+```
+
+- Finally, setup a websocket listening to port 1234 on path "/xgatews"
+
+```
+wscat -c ws://10.227.70.220:1234/xgatews
+```
+
+### Other Useful Informations: 
+
+- XGate components is all contained into [`xgate`](./src/proxy/src/main/java/ee/ria/xroad/xgate) package.
+- The additional handshake headers names are included in the class [MimeUtils](https://github.com/semlanghi/X-Road/blob/async-final/src/common-util/src/main/java/ee/ria/xroad/common/util/MimeUtils.java)
+- The continuous pull of info from the school service has a maximum number of iterations (for demonstration purposes), if you want to render it contonuous, and remove the delay, remove the while condition and the `sleep` command in the class [ISInCommunicationGet](https://github.com/semlanghi/X-Road/blob/async-final/src/proxy/src/main/java/ee/ria/xroad/xgate/ISInCommunicationGet.java)
+
+### Final Schema depicting the demo components
+
+
+
+
+
+
+
+
