@@ -112,7 +112,7 @@ DISCLAIMER: X-Gate modifications are on branch "async-final".
 ./bin/kafka-server-start.sh ./config/server.properties
 ```
 
-- To run the demo, you need to setup default variables in class [XGateConfig](https://github.com/semlanghi/X-Road/blob/async-final/src/proxy/src/main/java/ee/ria/xroad/xgate/XGateConfig.java). In particular:
+- To run the demo, you need to setup default variables in class [XGateConfig](./src/main/java/ee/ria/xroad/xgate/XGateConfig.java). In particular:
   - IS\_KAFKA\_PORT\_DEFAULT indicates the address of the Kafka Broker
   - IS\_KAFKA\_ADDRESS\_DEFAULT indicates the port of the Kafka Broker
 - Then, startup the X-Road environment through Ansible
@@ -145,12 +145,12 @@ wscat -c ws://10.227.70.220:1234/xgatews
 ### Other Useful Informations: 
 
 - XGate components is all contained into [`xgate`](./src/proxy/src/main/java/ee/ria/xroad/xgate) package.
-- The additional handshake headers names are included in the class [MimeUtils](https://github.com/semlanghi/X-Road/blob/async-final/src/common-util/src/main/java/ee/ria/xroad/common/util/MimeUtils.java)
-- The continuous pull of info from the school service has a maximum number of iterations (for demonstration purposes), if you want to render it contonuous, and remove the delay, remove the while condition and the `sleep` command in the class [ISInCommunicationGet](https://github.com/semlanghi/X-Road/blob/async-final/src/proxy/src/main/java/ee/ria/xroad/xgate/ISInCommunicationGet.java)
+- The additional handshake headers names are included in the class [MimeUtils](./src/main/java/ee/ria/xroad/common/util/MimeUtils.java)
+- The continuous pull of info from the school service has a maximum number of iterations (for demonstration purposes), if you want to render it contonuous, and remove the delay, remove the while condition and the `sleep` command in the class [ISInCommunicationGet](./src/main/java/ee/ria/xroad/xgate/ISInCommunicationGet.java)
 
 ### Final Schema depicting the demo components
 
-
+![](./demo.png)
 
 
 
